@@ -206,3 +206,79 @@ print("\nAll figures saved: ml_convergence.pdf, pareto_plot.pdf, ml_layout.pdf")
 # --- Calculate and print the true total runtime ---
 total_time_mins = (time.time() - total_ml_start_time) / 60
 print(f"\nTotal System Runtime (Data Mining + AI Training + Optimization): {total_time_mins:.2f} minutes")
+
+# --- Figure 8a: Tower Height vs Efficiency & Tower Cost ---
+# Filter valid samples for plotting
+valid_ths = [x[0] for x, l in zip(X_train, y_lcoe) if l < 9999.0]
+valid_effs_8a = [e * 100 for e, l in zip(y_eff, y_lcoe) if l < 9999.0]
+tower_costs_8a = [3000000 * np.exp(0.0113 * th) / 1e6 for th in valid_ths] # In Millions USD
+
+fig8a, ax1 = plt.subplots(figsize=(6, 5))
+# Sort data by TH for a cleaner line/scatter plot
+sorted_indices = np.argsort(valid_ths)
+ths_sorted = np.array(valid_ths)[sorted_indices]
+effs_sorted = np.array(valid_effs_8a)[sorted_indices]
+costs_sorted = np.array(tower_costs_8a)[sorted_indices]
+
+ax1.scatter(ths_sorted, effs_sorted, color="#1f77b4", alpha=0.4, s=10)
+ax1.set_xlabel("Tower Height (m)")
+ax1.set_ylabel("Annual Efficiency (%)", color="#1f77b4")
+ax1.tick_params(axis='y', labelcolor="#1f77b4")
+
+ax2 = ax1.twinx()
+ax2.plot(ths_sorted, costs_sorted, color="red", linewidth=2, label="Tower Cost")
+ax2.set_ylabel("Tower Capital Cost ($M)", color="red")
+ax2.tick_params(axis='y', labelcolor="red")
+
+plt.title("Fig 8a: Tower Height impact on Efficiency and Cost")
+plt.savefig("fig8a_tower_impact.pdf", bbox_inches="tight")
+
+# --- Figure 8c: Capital Cost Breakdown Comparison ---
+def get_cost_breakdown(solution):
+    TH, LH, WR, DS = solution
+    width = LH * WR
+    diagonal = np.sqrt(LH**2 + width**2)
+    # Ensure we use max_rings=60 as in the GA optimizer
+    x, y = generate_radial_staggered(TH, diagonal, DS, max_rings=60)
+    
+    # Apply 50MW Slicing logic
+    mirror_area = LH * width
+    # Physics constants must match calculate_annual_metrics
+    power_per_mirror = 858 * 0.88 * mirror_area * 0.82 
+    target_mirrors = int(50000000 / power_per_mirror)
+    
+    # --- FIXED: Slicing both x AND y ---
+    if target_mirrors < len(x): 
+        x = x[:target_mirrors]
+        y = y[:target_mirrors]
+    
+    # If the layout is too small to even reach 50 MW, don't crash
+    if len(x) == 0: return 0, 0, 0
+    
+    field_radius = np.max(np.sqrt(x**2 + y**2)) + diagonal
+    num_mirrors = len(x)
+    
+    t_cost = 3000000 * np.exp(0.0113 * TH) 
+    h_cost = (LH * width) * num_mirrors * 150  
+    l_cost = (np.pi * (field_radius ** 2)) * 5 
+    return t_cost/1e6, h_cost/1e6, l_cost/1e6 # Return in Millions USD
+
+# Get breakdowns for both solutions
+eff_costs = get_cost_breakdown(sol_eff)
+lcoe_costs = get_cost_breakdown(sol_lcoe)
+
+labels = ['Tower', 'Heliostat', 'Land']
+x_pos = np.arange(len(labels))
+
+fig8c, ax = plt.subplots(figsize=(7, 5))
+ax.bar(x_pos - 0.2, eff_costs, 0.4, label='Eff-Opt Layout', color='#1f77b4')
+ax.bar(x_pos + 0.2, lcoe_costs, 0.4, label='LCOE-Opt Layout', color='#2ca02c')
+
+ax.set_ylabel('Capital Cost (Millions USD)')
+ax.set_title('Fig 8c: Capital Cost Breakdown Comparison')
+ax.set_xticks(x_pos)
+ax.set_xticklabels(labels)
+ax.legend()
+
+plt.savefig("fig8c_cost_breakdown.pdf", bbox_inches="tight")
+print("Saved additional figures: fig8a_tower_impact.pdf and fig8c_cost_breakdown.pdf")
