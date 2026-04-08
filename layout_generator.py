@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def generate_radial_staggered(tower_height, heliostat_width, security_distance, max_rings=20):
+def generate_radial_staggered(tower_height, heliostat_width, security_distance, max_rings=60):
     """
     Generates x and y coordinates for a radial staggered heliostat field.
     """
@@ -41,12 +41,11 @@ def generate_radial_staggered(tower_height, heliostat_width, security_distance, 
     return np.array(x_coords), np.array(y_coords)
 
 
-
 def check_collisions(x_coords, y_coords, LH, WR, DS):
-    
-    # Checks if any heliostats in the field will collide during rotation.
-    # Returns True if the layout is safe, False if there are collisions.
-    
+    """
+    Checks if any heliostats in the field will collide during rotation.
+    Returns True if the layout is safe, False if there are collisions.
+    """
     # 1. Calculate the mirror's width based on the ratio
     width = LH * WR
     
@@ -70,7 +69,8 @@ def check_collisions(x_coords, y_coords, LH, WR, DS):
     # 7. Find the absolute closest pair of mirrors in the entire field
     min_dist = np.min(dist_matrix)
     
-    if min_dist >= safe_distance*0.98:
+    # Allow a 2% tolerance to account for the rotational arc of tracking heliostats
+    if min_dist >= safe_distance * 0.98:
        # print(f"Layout is SAFE! Minimum distance is {min_dist:.2f}m (Required: {safe_distance:.2f}m)")
         return True
     else:
@@ -78,30 +78,29 @@ def check_collisions(x_coords, y_coords, LH, WR, DS):
         return False
 
 
+if __name__ == "__main__":
+    # --- Test the Generator ---
+    # Using the constant parameters defined in Table 2 of the paper
+    TH = 130          # Tower Height in meters
+    LH = 10.95        # Heliostat Length in meters
+    WR = 1            # Width to Length ratio is 1, so width is also 10.95m
+    DS = 0.16         # Security distance in meters
 
+    x, y = generate_radial_staggered(tower_height=TH, heliostat_width=(LH * WR), security_distance=DS, max_rings=15)
 
-# --- Test the Generator ---
-# Using the constant parameters defined in Table 2 of the paper
-TH = 130          # Tower Height in meters
-LH = 10.95        # Heliostat Length in meters
-WR = 1            # Width to Length ratio is 1, so width is also 10.95m
-DS = 0.16         # Security distance in meters
+    print(f"Successfully generated {len(x)} heliostat coordinates.")
 
-x, y = generate_radial_staggered(tower_height=TH, heliostat_width=(LH * WR), security_distance=DS, max_rings=15)
+    # --- Visualize the Layout ---
+    plt.figure(figsize=(8, 8))
+    plt.scatter(x, y, s=15, c='#2ca02c', alpha=0.7, label='Heliostats')
+    plt.scatter(0, 0, s=150, c='red', label='Central Tower') 
 
-print(f"Successfully generated {len(x)} heliostat coordinates.")
-
-# --- Visualize the Layout ---
-plt.figure(figsize=(8, 8))
-plt.scatter(x, y, s=15, c='#2ca02c', alpha=0.7, label='Heliostats')
-plt.scatter(0, 0, s=150, c='red', label='Central Tower') 
-
-plt.title("Radial Staggered Heliostat Field Layout")
-plt.xlabel("Distance from Tower (meters)")
-plt.ylabel("Distance from Tower (meters)")
-plt.legend()
-plt.grid(True, linestyle='--', alpha=0.6)
-plt.axis('equal') # Keeps the aspect ratio perfectly circular
-# --- Run the Collision Check ---
-is_safe = check_collisions(x, y, LH, WR, DS)
-plt.show()
+    plt.title("Radial Staggered Heliostat Field Layout")
+    plt.xlabel("Distance from Tower (meters)")
+    plt.ylabel("Distance from Tower (meters)")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.axis('equal') # Keeps the aspect ratio perfectly circular
+    # --- Run the Collision Check ---
+    is_safe = check_collisions(x, y, LH, WR, DS)
+    plt.show()

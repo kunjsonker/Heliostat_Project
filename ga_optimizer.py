@@ -35,7 +35,9 @@ def calculate_annual_metrics(TH, LH, WR, DS):
     """Calculates both Efficiency and LCOE for a given layout."""
     width = LH * WR
     diagonal = np.sqrt(LH**2 + width**2)
-    x, y = generate_radial_staggered(TH, diagonal, DS)
+    
+    # --- FIX: Explicitly pass max_rings=60 to prevent mirror starvation ---
+    x, y = generate_radial_staggered(TH, diagonal, DS, max_rings=60)
     
     if not check_collisions(x, y, LH, WR, DS):
         return 0, 0, 0 # Fail score

@@ -65,40 +65,42 @@ def calculate_efficiencies(x_field, y_field, tower_height, elevation_deg, azimut
     
     return cosine_eff, attenuation_eff, total_eff
 
-# --- Run the Simulation ---
-# Constants from Paper
-TH = 130  # Tower Height
-LH = 10.95
-WR = 1.0
-DS = 0.16
 
-# 1. Generate the Field
-print("Generating field...")
-x, y = generate_radial_staggered(TH, LH*WR, DS)
+if __name__ == "__main__":
+    # --- Run the Simulation ---
+    # Constants from Paper
+    TH = 130  # Tower Height
+    LH = 10.95
+    WR = 1.0
+    DS = 0.16
 
-# 2. Get Sun Position (Vernal Equinox, 11 AM)
-# We calculated this in the previous step: Elevation ~56.25 deg
-sun_elevation = 56.25 
-# Note: Azimuth is also needed for the vector. For 11 AM, sun is roughly South-East.
-# Let's approximate Azimuth as 165 degrees (15 degrees off South) for this test.
-sun_azimuth = 165 
+    # 1. Generate the Field
+    print("Generating field...")
+    x, y = generate_radial_staggered(TH, LH*WR, DS)
 
-# 3. Calculate Efficiencies
-print("Calculating physics...")
-cos_eff, att_eff, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
+    # 2. Get Sun Position (Vernal Equinox, 11 AM)
+    # We calculated this in the previous step: Elevation ~56.25 deg
+    sun_elevation = 56.25 
+    # Note: Azimuth is also needed for the vector. For 11 AM, sun is roughly South-East.
+    # Let's approximate Azimuth as 165 degrees (15 degrees off South) for this test.
+    sun_azimuth = 165 
 
-print(f"Average Cosine Efficiency: {np.mean(cos_eff):.4f}")
-print(f"Average Attenuation Efficiency: {np.mean(att_eff):.4f}")
-print(f"Average Total Efficiency: {np.mean(tot_eff):.4f}")
+    # 3. Calculate Efficiencies
+    print("Calculating physics...")
+    cos_eff, att_eff, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
 
-# --- Visualize (Heatmap) ---
-plt.figure(figsize=(10, 8))
-plt.scatter(x, y, c=tot_eff, cmap='viridis', s=15)
-plt.colorbar(label='Total Optical Efficiency')
-plt.scatter(0, 0, c='red', s=100, marker='^', label='Tower')
-plt.title(f"Field Efficiency Map (Vernal Equinox 11:00 AM)\nTower Height: {TH}m")
-plt.xlabel("East-West (m)")
-plt.ylabel("North-South (m)")
-plt.axis('equal')
-plt.legend()
-plt.show()
+    print(f"Average Cosine Efficiency: {np.mean(cos_eff):.4f}")
+    print(f"Average Attenuation Efficiency: {np.mean(att_eff):.4f}")
+    print(f"Average Total Efficiency: {np.mean(tot_eff):.4f}")
+
+    # --- Visualize (Heatmap) ---
+    plt.figure(figsize=(10, 8))
+    plt.scatter(x, y, c=tot_eff, cmap='viridis', s=15)
+    plt.colorbar(label='Total Optical Efficiency')
+    plt.scatter(0, 0, c='red', s=100, marker='^', label='Tower')
+    plt.title(f"Field Efficiency Map (Vernal Equinox 11:00 AM)\nTower Height: {TH}m")
+    plt.xlabel("East-West (m)")
+    plt.ylabel("North-South (m)")
+    plt.axis('equal')
+    plt.legend()
+    plt.show()

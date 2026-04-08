@@ -87,10 +87,12 @@ print("Mining for 150 perfectly safe layouts to teach the AI...")
 total_ml_start_time = time.time() 
 
 X_train, y_eff, y_lcoe = [], [], []
+valid_layouts = 0
 target_valid_samples = 150
 total_attempts = 0
 
-while len(X_train) < target_valid_samples:
+# --- FIX 4: The AI Blindspot Fix ---
+while valid_layouts < target_valid_samples:
     total_attempts += 1
     TH = np.random.uniform(50, 300)
     LH = np.random.uniform(5, 20)
@@ -98,12 +100,21 @@ while len(X_train) < target_valid_samples:
     DS = np.random.uniform(0.1, 0.5)
     
     eff, lcoe = calculate_annual_metrics(TH, LH, WR, DS)
+    
+    # Record EVERY guess so the AI learns the physical boundaries of the field
+    X_train.append([TH, LH, WR, DS])
+    
     if eff > 0:
-        X_train.append([TH, LH, WR, DS])
+        # Successful layout
         y_eff.append(eff)
         y_lcoe.append(lcoe)
-        if len(X_train) % 10 == 0:
-            print(f"Data Mining Progress: {len(X_train)}/{target_valid_samples} safe layouts found...")
+        valid_layouts += 1
+        if valid_layouts % 10 == 0:
+            print(f"Data Mining Progress: {valid_layouts}/{target_valid_samples} safe layouts found...")
+    else:
+        # Failed layout (collided or couldn't reach 50 MW) -> Give the AI a penalty
+        y_eff.append(0.0001)
+        y_lcoe.append(9999.0)
 
 print(f"\nData generation complete! It took {total_attempts} random guesses to find 150 safe layouts.")
 
@@ -163,7 +174,10 @@ plt.savefig("ml_convergence.pdf")
 
 # Figure: Pareto (Paper Fig 8b)
 fig2, ax = plt.subplots(figsize=(6, 5))
-ax.scatter([e * 100 for e in y_eff], y_lcoe, alpha=0.3, color="gray", label="Samples")
+# Filter out the penalty scores (9999 LCOE) so they don't ruin the Pareto plot scale
+valid_effs = [e * 100 for e, l in zip(y_eff, y_lcoe) if l < 9999.0]
+valid_lcoes = [l for l in y_lcoe if l < 9999.0]
+ax.scatter(valid_effs, valid_lcoes, alpha=0.3, color="gray", label="Samples")
 ax.scatter(final_eff, rf_lcoe.predict([sol_eff])[0], color="blue", marker="*", s=200, label="Max Eff")
 ax.scatter(rf_efficiency.predict([sol_lcoe])[0]*100, final_lcoe, color="green", marker="*", s=200, label="Min LCOE")
 ax.set_xlabel("Efficiency (%)"); ax.set_ylabel("LCOE ($/kWh)")
@@ -189,6 +203,6 @@ plt.savefig("ml_layout.pdf", bbox_inches="tight")
 
 print("\nAll figures saved: ml_convergence.pdf, pareto_plot.pdf, ml_layout.pdf")
 
-# --- FIX 3 (continued): Calculate and print the true total runtime ---
+# --- Calculate and print the true total runtime ---
 total_time_mins = (time.time() - total_ml_start_time) / 60
 print(f"\nTotal System Runtime (Data Mining + AI Training + Optimization): {total_time_mins:.2f} minutes")
