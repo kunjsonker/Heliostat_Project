@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pygad
+import time
 from layout_generator import generate_radial_staggered, check_collisions
 from efficiency_physics import calculate_efficiencies
 from solar_physics import calculate_sun_angles
@@ -39,6 +40,20 @@ def calculate_annual_metrics(TH, LH, WR, DS):
     if not check_collisions(x, y, LH, WR, DS):
         return 0, 0, 0 # Fail score
         
+    # --- FIX 1: Enforce 50 MW Capacity Limit ---
+    mirror_area = LH * width
+    power_per_mirror = 858 * 0.88 * mirror_area * 0.82 
+    target_mirrors = int(50000000 / power_per_mirror)
+    
+    if target_mirrors <= len(x):
+        # Slice the coordinate arrays to cap the field at exactly 50 MW
+        x = x[:target_mirrors]
+        y = y[:target_mirrors]
+    else:
+        # Fail score if the layout cannot fit enough mirrors to reach 50 MW
+        return 0, 0, 0
+    # -------------------------------------------
+        
     num_mirrors = len(x)
     if num_mirrors == 0:
         return 0, 0, 0
@@ -58,7 +73,8 @@ def calculate_annual_metrics(TH, LH, WR, DS):
         if sun_elevation <= 0:
             continue
             
-        cos_eff, att_eff, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, 180)
+        # --- FIX 2: Use actual sun_azimuth instead of hardcoded 180 ---
+        cos_eff, att_eff, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
         
         mean_eff = np.mean(tot_eff) * 0.97
         total_annual_efficiency += mean_eff
@@ -95,33 +111,42 @@ ga_args = {
     'num_genes': 4, 'gene_space': gene_space, 'mutation_probability': 0.2, 'suppress_warnings': True
 }
 
+overall_start_time = time.time()
+
 print("\n==================================================")
 print("RUN 1: OPTIMIZING FOR MAXIMUM ANNUAL EFFICIENCY")
 print("==================================================")
+eff_start = time.time()
 ga_eff = pygad.GA(fitness_func=fitness_func_efficiency, **ga_args)
 ga_eff.run()
 sol_eff, _, _ = ga_eff.best_solution()
 eff1, lcoe1, num1 = calculate_annual_metrics(*sol_eff)
+eff_time = (time.time() - eff_start) / 60
 
 print(f"\n---> BEST EFFICIENCY RESULTS <---")
 print(f"Optical Efficiency: {eff1 * 100:.2f}%")
 print(f"LCOE Cost: ${lcoe1:.4f} per kWh")
 print(f"Dimensions -> Tower: {sol_eff[0]:.2f}m | Mirrors: {sol_eff[1]:.2f}m x {sol_eff[1]*sol_eff[2]:.2f}m")
 print(f"Total Mirrors: {num1} | Safety Distance: {sol_eff[3]:.2f}m")
+print(f"Time Taken: {eff_time:.2f} minutes")
 
 
 print("\n==================================================")
 print("RUN 2: OPTIMIZING FOR LOWEST FINANCIAL COST (LCOE)")
 print("==================================================")
+lcoe_start = time.time()
 ga_lcoe = pygad.GA(fitness_func=fitness_func_lcoe, **ga_args)
 ga_lcoe.run()
 sol_lcoe, _, _ = ga_lcoe.best_solution()
 eff2, lcoe2, num2 = calculate_annual_metrics(*sol_lcoe)
+lcoe_time = (time.time() - lcoe_start) / 60
 
 print(f"\n---> BEST FINANCIAL RESULTS (LCOE) <---")
 print(f"Optical Efficiency: {eff2 * 100:.2f}%")
 print(f"LCOE Cost: ${lcoe2:.4f} per kWh")
 print(f"Dimensions -> Tower: {sol_lcoe[0]:.2f}m | Mirrors: {sol_lcoe[1]:.2f}m x {sol_lcoe[1]*sol_lcoe[2]:.2f}m")
 print(f"Total Mirrors: {num2} | Safety Distance: {sol_lcoe[3]:.2f}m")
+print(f"Time Taken: {lcoe_time:.2f} minutes")
 
-print("\nAll simulations complete.")
+total_time = (time.time() - overall_start_time) / 60
+print(f"\nAll simulations complete. Total standard GA runtime: {total_time:.2f} minutes.")

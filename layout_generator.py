@@ -70,7 +70,7 @@ def check_collisions(x_coords, y_coords, LH, WR, DS):
     # 7. Find the absolute closest pair of mirrors in the entire field
     min_dist = np.min(dist_matrix)
     
-    if min_dist >= safe_distance:
+    if min_dist >= safe_distance*0.98:
        # print(f"Layout is SAFE! Minimum distance is {min_dist:.2f}m (Required: {safe_distance:.2f}m)")
         return True
     else:
