@@ -174,14 +174,34 @@ print("="*60)
 
 plt.rcParams.update({"font.family": "serif", "figure.dpi": 300})
 
-# Figure: Convergence (Paper Fig 6c)
-fig1, ax1 = plt.subplots(figsize=(6, 5))
-ax1.plot([v * 100 for v in ga_eff.best_solutions_fitness], color="#1f77b4", label="Efficiency")
-ax1.set_xlabel("Generation"); ax1.set_ylabel("Mean Efficiency (%)", color="#1f77b4")
+# --- Generate Figure 6(c): ML-GA Convergence ---
+fig6c, ax1 = plt.subplots(figsize=(5, 5))
+
+# Plot Efficiency (Run 1) on primary Y axis
+
+eff_history = [v * 100 for v in ga_eff.best_solutions_fitness]
+line1 = ax1.plot(eff_history, color="#1f4e79", linewidth=2, label=r"Run 1: $\eta$")
+ax1.set_xlabel("Generation")
+ax1.set_ylabel(r"Mean $\eta$ (%)", color="#1f4e79")
+
+# Plot LCOE (Run 2) on secondary Y axis
 ax2 = ax1.twinx()
-ax2.plot([1.0/v for v in ga_lcoe.best_solutions_fitness], color="#2ca02c", linestyle="--", label="LCOE")
-ax2.set_ylabel("LCOE ($/kWh)", color="#2ca02c")
-plt.savefig("ml_convergence.pdf")
+# Note: PyGAD maximizes fitness, so we invert the fitness score back to raw LCOE
+lcoe_history = [1.0/v for v in ga_lcoe.best_solutions_fitness]
+line2 = ax2.plot(lcoe_history, color="#2c3e50", linestyle="--", linewidth=2, label="Run 2: LCOE")
+ax2.set_ylabel("LCOE (USD/kWh)", color="#2c3e50")
+ax2.tick_params(axis='y', labelcolor="#2c3e50")
+
+# Add combined legend
+lines = line1 + line2
+labels = [l.get_label() for l in lines]
+ax1.legend(lines, labels, loc="lower right")
+
+ax1.set_title("(c) ML-GA convergence")
+ax1.grid(True, linestyle='--', alpha=0.5)
+
+plt.tight_layout()
+plt.savefig("fig6c_ml_convergence.pdf")
 
 # Figure: Pareto (Paper Fig 8b)
 fig2, ax = plt.subplots(figsize=(6, 5))

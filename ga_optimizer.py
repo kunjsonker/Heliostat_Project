@@ -105,6 +105,35 @@ print("==================================================")
 eff_start = time.time()
 ga_eff = pygad.GA(fitness_func=fitness_func_efficiency, **ga_args)
 ga_eff.run()
+
+
+import matplotlib.pyplot as plt
+
+# --- Generate Figure 6(a): GA Convergence ---
+plt.rcParams.update({"font.family": "serif", "figure.dpi": 300})
+fig6a, ax = plt.subplots(figsize=(5, 5))
+
+# Extract fitness history and convert to percentage
+ga_fitness_history = [v * 100 for v in ga_eff.best_solutions_fitness]
+
+# Plot the convergence curve
+ax.plot(ga_fitness_history, color='black', linewidth=2, label=r"Run 1: $\eta$")
+ax.set_xlabel("Generation")
+ax.set_ylabel(r"Mean $\eta$ (%)")
+ax.set_title("(a) GA convergence")
+ax.grid(True, linestyle='--', alpha=0.5)
+
+# Optional: Add a shaded region like in the paper
+ax.fill_between(range(len(ga_fitness_history)), ga_fitness_history, color='#e6e6fa', alpha=0.5)
+
+plt.tight_layout()
+plt.savefig("fig6a_ga_convergence.pdf")
+print("Saved Figure 6(a): fig6a_ga_convergence.pdf")
+
+
+
+
+
 sol_eff, _, _ = ga_eff.best_solution()
 eff1, lcoe1, num1 = calculate_annual_metrics(*sol_eff)
 eff_time = (time.time() - eff_start) / 60
