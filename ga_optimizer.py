@@ -32,67 +32,51 @@ def calculate_plant_cost(TH, LH, WR, num_mirrors, field_radius):
     return annual_cost, total_glass_area
 
 def calculate_annual_metrics(TH, LH, WR, DS):
-    """Calculates both Efficiency and LCOE for a given layout."""
     width = LH * WR
     diagonal = np.sqrt(LH**2 + width**2)
+    x, y = generate_radial_staggered(TH, diagonal, DS)
     
-    # --- FIX: Explicitly pass max_rings=60 to prevent mirror starvation ---
-    x, y = generate_radial_staggered(TH, diagonal, DS, max_rings=60)
-    
-    if not check_collisions(x, y, LH, WR, DS):
-        return 0, 0, 0 # Fail score
-        
-    # --- FIX 1: Enforce 50 MW Capacity Limit ---
     mirror_area = LH * width
     power_per_mirror = 858 * 0.88 * mirror_area * 0.82 
-    target_mirrors = int(50000000 / power_per_mirror)
+    target_mirrors = int(50000000 / power_per_mirror) 
     
     if target_mirrors <= len(x):
-        # Slice the coordinate arrays to cap the field at exactly 50 MW
         x = x[:target_mirrors]
         y = y[:target_mirrors]
     else:
-        # Fail score if the layout cannot fit enough mirrors to reach 50 MW
+        # FIX 1: Return 3 zeros instead of 2 zeros or nothing
         return 0, 0, 0
-    # -------------------------------------------
         
-    num_mirrors = len(x)
-    if num_mirrors == 0:
+    if not check_collisions(x, y, LH, WR, DS) or len(x) == 0:
+        # FIX 2: Return 3 zeros for collision failures
         return 0, 0, 0
         
     field_radius = np.max(np.sqrt(x**2 + y**2)) + diagonal
-    annual_cost, total_glass_area = calculate_plant_cost(TH, LH, WR, num_mirrors, field_radius)
+    annual_cost, total_glass_area = calculate_plant_cost(TH, LH, WR, len(x), field_radius)
     
     total_annual_efficiency = 0
     total_annual_energy_kwh = 0
     valid_days = 0
     
-    for index, row in annual_sample.iterrows():
-        day = row['day_of_year']
-        dni = row['dni'] 
-        
-        sun_elevation, sun_azimuth = calculate_sun_angles(day, 12.0)
-        if sun_elevation <= 0:
-            continue
+    for _, row in annual_sample.iterrows():
+        sun_elevation, sun_azimuth = calculate_sun_angles(row['day_of_year'], 12.0)
+        if sun_elevation <= 0: continue
             
-        # --- FIX 2: Use actual sun_azimuth instead of hardcoded 180 ---
-        cos_eff, att_eff, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
+        _, _, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
         
-        mean_eff = np.mean(tot_eff) * 0.97
+        mean_eff = np.mean(tot_eff) * 0.97 
         total_annual_efficiency += mean_eff
         valid_days += 1
         
-        power_kw = (dni * total_glass_area * mean_eff * 0.9) / 1000
-        monthly_energy_kwh = (power_kw * 8) * 30
-        total_annual_energy_kwh += monthly_energy_kwh
+        total_annual_energy_kwh += ((row['dni'] * total_glass_area * mean_eff * 0.88) / 1000 * 8) * 30
         
     if total_annual_energy_kwh == 0 or valid_days == 0:
+        # FIX 3: Return 3 zeros for zero energy failures
         return 0, 0, 0
         
-    avg_efficiency = total_annual_efficiency / valid_days
-    lcoe = annual_cost / total_annual_energy_kwh
-    
-    return avg_efficiency, lcoe, num_mirrors
+    # FIX 4: Make sure the final success return gives exactly 3 values: (eff, lcoe, num_mirrors)
+    return total_annual_efficiency / valid_days, annual_cost / total_annual_energy_kwh, len(x)
+
 
 # --- 3. Define the Two Fitness Functions ---
 def fitness_func_efficiency(ga_instance, solution, solution_idx):

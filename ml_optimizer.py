@@ -152,14 +152,25 @@ ga_lcoe.run()
 sol_lcoe, _, _ = ga_lcoe.best_solution()
 
 # --- 6. OUTPUT RESULTS & FIGURES ---
+# --- 6. OUTPUT RESULTS & FIGURES ---
 final_eff = rf_efficiency.predict([sol_eff])[0] * 100
 final_lcoe = rf_lcoe.predict([sol_lcoe])[0]
 
-print("\n" + "="*50)
+# Calculate the exact number of mirrors used for the 50 MW target for both optimal solutions
+def get_mirror_count(LH, WR):
+    mirror_area = LH * (LH * WR)
+    power_per_mirror = 858 * 0.88 * mirror_area * 0.82 
+    return int(50000000 / power_per_mirror)
+
+mirrors_eff = get_mirror_count(sol_eff[1], sol_eff[2])
+mirrors_lcoe = get_mirror_count(sol_lcoe[1], sol_lcoe[2])
+
+print("\n" + "="*60)
 print("FINAL ML PREDICTION RESULTS")
-print("="*50)
-print(f"Efficiency Opt: TH={sol_eff[0]:.2f}m | LH={sol_eff[1]:.2f}m | Eff={final_eff:.2f}%")
-print(f"LCOE Opt:       TH={sol_lcoe[0]:.2f}m | LH={sol_lcoe[1]:.2f}m | LCOE=${final_lcoe:.3f}/kWh")
+print("="*60)
+print(f"Efficiency Opt: TH={sol_eff[0]:.2f}m | LH={sol_eff[1]:.2f}m | Mirrors={mirrors_eff} | Eff={final_eff:.2f}%")
+print(f"LCOE Opt:       TH={sol_lcoe[0]:.2f}m | LH={sol_lcoe[1]:.2f}m | Mirrors={mirrors_lcoe} | LCOE=${final_lcoe:.3f}/kWh")
+print("="*60)
 
 plt.rcParams.update({"font.family": "serif", "figure.dpi": 300})
 
