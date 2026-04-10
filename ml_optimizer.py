@@ -152,7 +152,6 @@ ga_lcoe.run()
 sol_lcoe, _, _ = ga_lcoe.best_solution()
 
 # --- 6. OUTPUT RESULTS & FIGURES ---
-# --- 6. OUTPUT RESULTS & FIGURES ---
 final_eff = rf_efficiency.predict([sol_eff])[0] * 100
 final_lcoe = rf_lcoe.predict([sol_lcoe])[0]
 
@@ -174,11 +173,10 @@ print("="*60)
 
 plt.rcParams.update({"font.family": "serif", "figure.dpi": 300})
 
-# --- Generate Figure 6(c): ML-GA Convergence ---
-fig6c, ax1 = plt.subplots(figsize=(5, 5))
+# --- Generate ML-GA Convergence ---
+fig1, ax1 = plt.subplots(figsize=(5, 5))
 
 # Plot Efficiency (Run 1) on primary Y axis
-
 eff_history = [v * 100 for v in ga_eff.best_solutions_fitness]
 line1 = ax1.plot(eff_history, color="#1f4e79", linewidth=2, label=r"Run 1: $\eta$")
 ax1.set_xlabel("Generation")
@@ -200,10 +198,11 @@ ax1.legend(lines, labels, loc="lower right")
 ax1.set_title("(c) ML-GA convergence")
 ax1.grid(True, linestyle='--', alpha=0.5)
 
-plt.tight_layout()
-plt.savefig("fig6c_ml_convergence.pdf")
+fig1.tight_layout()
+fig1.savefig("ml_convergence.pdf")
+plt.close(fig1)
 
-# Figure: Pareto (Paper Fig 8b)
+# Figure: Pareto
 fig2, ax = plt.subplots(figsize=(6, 5))
 # Filter out the penalty scores (9999 LCOE) so they don't ruin the Pareto plot scale
 valid_effs = [e * 100 for e, l in zip(y_eff, y_lcoe) if l < 9999.0]
@@ -211,8 +210,11 @@ valid_lcoes = [l for l in y_lcoe if l < 9999.0]
 ax.scatter(valid_effs, valid_lcoes, alpha=0.3, color="gray", label="Samples")
 ax.scatter(final_eff, rf_lcoe.predict([sol_eff])[0], color="blue", marker="*", s=200, label="Max Eff")
 ax.scatter(rf_efficiency.predict([sol_lcoe])[0]*100, final_lcoe, color="green", marker="*", s=200, label="Min LCOE")
-ax.set_xlabel("Efficiency (%)"); ax.set_ylabel("LCOE ($/kWh)")
-ax.legend(); plt.savefig("pareto_plot.pdf")
+ax.set_xlabel("Efficiency (%)")
+ax.set_ylabel("LCOE ($/kWh)")
+ax.legend()
+fig2.savefig("pareto_plot.pdf")
+plt.close(fig2)
 
 # Figure: Final Layout (Paper Fig 4 Right)
 opt_diag = np.sqrt(sol_lcoe[1]**2 + (sol_lcoe[1]*sol_lcoe[2])**2)
@@ -230,7 +232,8 @@ dist = np.sqrt(x_ml**2 + y_ml**2)
 ax3.scatter(x_ml, y_ml, c=dist, cmap="RdYlGn", s=6)
 ax3.plot(0, 0, "k^", ms=10)
 ax3.set_title(f"ML-GA LCOE-Optimized Layout (N={len(x_ml)})")
-plt.savefig("ml_layout.pdf", bbox_inches="tight")
+fig3.savefig("ml_layout.pdf", bbox_inches="tight")
+plt.close(fig3)
 
 print("\nAll figures saved: ml_convergence.pdf, pareto_plot.pdf, ml_layout.pdf")
 
@@ -238,13 +241,13 @@ print("\nAll figures saved: ml_convergence.pdf, pareto_plot.pdf, ml_layout.pdf")
 total_time_mins = (time.time() - total_ml_start_time) / 60
 print(f"\nTotal System Runtime (Data Mining + AI Training + Optimization): {total_time_mins:.2f} minutes")
 
-# --- Figure 8a: Tower Height vs Efficiency & Tower Cost ---
+# --- Tower Height vs Efficiency & Tower Cost ---
 # Filter valid samples for plotting
 valid_ths = [x[0] for x, l in zip(X_train, y_lcoe) if l < 9999.0]
 valid_effs_8a = [e * 100 for e, l in zip(y_eff, y_lcoe) if l < 9999.0]
 tower_costs_8a = [3000000 * np.exp(0.0113 * th) / 1e6 for th in valid_ths] # In Millions USD
 
-fig8a, ax1 = plt.subplots(figsize=(6, 5))
+fig4, ax1 = plt.subplots(figsize=(6, 5))
 # Sort data by TH for a cleaner line/scatter plot
 sorted_indices = np.argsort(valid_ths)
 ths_sorted = np.array(valid_ths)[sorted_indices]
@@ -261,10 +264,11 @@ ax2.plot(ths_sorted, costs_sorted, color="red", linewidth=2, label="Tower Cost")
 ax2.set_ylabel("Tower Capital Cost ($M)", color="red")
 ax2.tick_params(axis='y', labelcolor="red")
 
-plt.title("Fig 8a: Tower Height impact on Efficiency and Cost")
-plt.savefig("fig8a_tower_impact.pdf", bbox_inches="tight")
+ax1.set_title("Tower Height impact on Efficiency and Cost")
+fig4.savefig("tower_impact.pdf", bbox_inches="tight")
+plt.close(fig4)
 
-# --- Figure 8c: Capital Cost Breakdown Comparison ---
+# --- Capital Cost Breakdown Comparison ---
 def get_cost_breakdown(solution):
     TH, LH, WR, DS = solution
     width = LH * WR
@@ -301,15 +305,16 @@ lcoe_costs = get_cost_breakdown(sol_lcoe)
 labels = ['Tower', 'Heliostat', 'Land']
 x_pos = np.arange(len(labels))
 
-fig8c, ax = plt.subplots(figsize=(7, 5))
+fig5, ax = plt.subplots(figsize=(7, 5))
 ax.bar(x_pos - 0.2, eff_costs, 0.4, label='Eff-Opt Layout', color='#1f77b4')
 ax.bar(x_pos + 0.2, lcoe_costs, 0.4, label='LCOE-Opt Layout', color='#2ca02c')
 
 ax.set_ylabel('Capital Cost (Millions USD)')
-ax.set_title('Fig 8c: Capital Cost Breakdown Comparison')
+ax.set_title('Capital Cost Breakdown Comparison')
 ax.set_xticks(x_pos)
 ax.set_xticklabels(labels)
 ax.legend()
 
-plt.savefig("fig8c_cost_breakdown.pdf", bbox_inches="tight")
-print("Saved additional figures: fig8a_tower_impact.pdf and fig8c_cost_breakdown.pdf")
+fig5.savefig("cost_breakdown.pdf", bbox_inches="tight")
+plt.close(fig5)
+print("Saved additional figures: tower_impact.pdf and cost_breakdown.pdf")
