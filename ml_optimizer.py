@@ -227,13 +227,54 @@ opt_target_mirrors = int(50000000 / opt_power_per_mirror)
 if opt_target_mirrors <= len(x_ml):
     x_ml, y_ml = x_ml[:opt_target_mirrors], y_ml[:opt_target_mirrors]
 
-fig3, ax3 = plt.subplots(figsize=(6, 6))
-dist = np.sqrt(x_ml**2 + y_ml**2)
-ax3.scatter(x_ml, y_ml, c=dist, cmap="RdYlGn", s=6)
-ax3.plot(0, 0, "k^", ms=10)
-ax3.set_title(f"ML-GA LCOE-Optimized Layout (N={len(x_ml)})")
+# --- ML-GA Efficiency layout (for Fig 4 right panel) ---
+diag_eff_ml = np.sqrt(sol_eff[1]**2 + (sol_eff[1]*sol_eff[2])**2)
+x_ml_eff, y_ml_eff = generate_radial_staggered(sol_eff[0], diag_eff_ml, sol_eff[3])
+ma_eff_ml = sol_eff[1] * (sol_eff[1]*sol_eff[2])
+ppm_eff_ml = 858 * 0.88 * ma_eff_ml * 0.82
+tm_eff_ml = int(50000000 / ppm_eff_ml)
+if tm_eff_ml <= len(x_ml_eff):
+    x_ml_eff, y_ml_eff = x_ml_eff[:tm_eff_ml], y_ml_eff[:tm_eff_ml]
+
+def _scatter_field(ax, x, y, title, cmap="RdYlGn", cbar_label="Efficiency (%)"):
+    dist = np.sqrt(x**2 + y**2)
+    norm_dist = 1 - (dist / dist.max())
+    sc = ax.scatter(x, y, c=norm_dist, cmap=cmap, s=6,
+                    vmin=0, vmax=1, linewidths=0)
+    plt.colorbar(sc, ax=ax, label=cbar_label, fraction=0.04, pad=0.04)
+    ax.set_title(title, pad=6)
+    ax.set_xlabel("Distance from Tower (m)")
+    ax.set_ylabel("Distance from Tower (m)")
+    ax.set_aspect("equal")
+    ax.axhline(0, color="k", lw=0.4, ls="--")
+    ax.axvline(0, color="k", lw=0.4, ls="--")
+    r = dist.max() * 0.92
+    for txt, (ex, ey) in [("N",(0,1)), ("S",(0,-1)), ("E",(1,0)), ("W",(-1,0))]:
+        ax.text(ex*r, ey*r, txt, ha="center", va="center",
+                fontsize=7, color="gray")
+    ax.plot(0, 0, marker="*", color="darkred", markersize=12,
+            markeredgecolor="black", markeredgewidth=0.5,
+            label="Tower / Receiver", zorder=5)
+    ax.legend(fontsize=7, loc="upper right")
+
+fig3, axes3 = plt.subplots(1, 2, figsize=(14, 6))
+
+_scatter_field(
+    axes3[0], x_ml_eff, y_ml_eff,
+    f"ML-GA Eff-opt Radial\n"
+    f"TH={sol_eff[0]:.1f}m, LH={sol_eff[1]:.2f}m, N={len(x_ml_eff)}"
+)
+_scatter_field(
+    axes3[1], x_ml, y_ml,
+    f"ML-GA LCOE-opt Radial\n"
+    f"TH={sol_lcoe[0]:.1f}m, LH={sol_lcoe[1]:.2f}m, N={len(x_ml)}"
+)
+
+fig3.suptitle("ML-GA Optimized Radial Staggered Layouts", fontsize=11, fontweight="bold")
+fig3.tight_layout()
 fig3.savefig("ml_layout.pdf", bbox_inches="tight")
-plt.close(fig3)
+plt.show()
+print("Saved ml_layout.pdf")
 
 print("\nAll figures saved: ml_convergence.pdf, pareto_plot.pdf, ml_layout.pdf")
 

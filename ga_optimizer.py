@@ -158,7 +158,6 @@ lcoe_start = time.time()
 ga_lcoe = pygad.GA(fitness_func=fitness_func_lcoe, **ga_args)
 ga_lcoe.run()
 
-# Results for Run 2
 sol_lcoe, _, _ = ga_lcoe.best_solution()
 eff2, lcoe2, num2 = calculate_annual_metrics(*sol_lcoe)
 lcoe_time = (time.time() - lcoe_start) / 60
@@ -172,3 +171,83 @@ print(f"Time Taken: {lcoe_time:.2f} minutes")
 
 total_time = (time.time() - overall_start_time) / 60
 print(f"\nAll simulations complete. Total standard GA runtime: {total_time:.2f} minutes.")
+
+
+# ============================================================
+# PLOT: GA Layout Figure (a) and (b) — matching plotting.py style
+# ============================================================
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import numpy as np
+
+plt.rcParams.update({
+    "font.family": "serif",
+    "axes.titlesize": 10,
+    "axes.labelsize": 9,
+    "xtick.labelsize": 8,
+    "ytick.labelsize": 8,
+    "figure.dpi": 300,
+    "savefig.dpi": 300,
+})
+
+def _scatter_field(ax, x, y, title, cmap="RdYlGn", cbar_label="Efficiency (%)"):
+    positions = np.column_stack([x, y])
+    dist = np.sqrt(x**2 + y**2)
+    # Normalize distance: inner=high value (green), outer=low value (red)
+    norm_dist = 1 - (dist / dist.max())
+    sc = ax.scatter(x, y, c=norm_dist, cmap=cmap, s=6,
+                    vmin=0, vmax=1, linewidths=0)
+    plt.colorbar(sc, ax=ax, label=cbar_label, fraction=0.04, pad=0.04)
+    ax.set_title(title, pad=6)
+    ax.set_xlabel("Distance from Tower (m)")
+    ax.set_ylabel("Distance from Tower (m)")
+    ax.set_aspect("equal")
+    ax.axhline(0, color="k", lw=0.4, ls="--")
+    ax.axvline(0, color="k", lw=0.4, ls="--")
+    # Cardinal labels
+    r = dist.max() * 0.92
+    for txt, (ex, ey) in [("N",(0,1)), ("S",(0,-1)), ("E",(1,0)), ("W",(-1,0))]:
+        ax.text(ex*r, ey*r, txt, ha="center", va="center",
+                fontsize=7, color="gray")
+    # Tower marker
+    ax.plot(0, 0, marker="*", color="darkred", markersize=12,
+            markeredgecolor="black", markeredgewidth=0.5,
+            label="Tower / Receiver", zorder=5)
+    ax.legend(fontsize=7, loc="upper right")
+
+# --- Generate GA Eff layout ---
+diag_eff = np.sqrt(sol_eff[1]**2 + (sol_eff[1]*sol_eff[2])**2)
+x_eff, y_eff_coords = generate_radial_staggered(sol_eff[0], diag_eff, sol_eff[3])
+mirror_area_eff = sol_eff[1] * (sol_eff[1]*sol_eff[2])
+ppm_eff = 858 * 0.88 * mirror_area_eff * 0.82
+tm_eff = int(50000000 / ppm_eff)
+if tm_eff <= len(x_eff):
+    x_eff, y_eff_coords = x_eff[:tm_eff], y_eff_coords[:tm_eff]
+
+# --- Generate GA LCOE layout ---
+diag_lcoe = np.sqrt(sol_lcoe[1]**2 + (sol_lcoe[1]*sol_lcoe[2])**2)
+x_lc, y_lc = generate_radial_staggered(sol_lcoe[0], diag_lcoe, sol_lcoe[3])
+mirror_area_lc = sol_lcoe[1] * (sol_lcoe[1]*sol_lcoe[2])
+ppm_lc = 858 * 0.88 * mirror_area_lc * 0.82
+tm_lc = int(50000000 / ppm_lc)
+if tm_lc <= len(x_lc):
+    x_lc, y_lc = x_lc[:tm_lc], y_lc[:tm_lc]
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+_scatter_field(
+    axes[0], x_eff, y_eff_coords,
+    f"GA-opt Efficiency Radial Staggered\n"
+    f"TH={sol_eff[0]:.1f}m, LH={sol_eff[1]:.2f}m×{sol_eff[1]*sol_eff[2]:.2f}m, N={len(x_eff)}"
+)
+_scatter_field(
+    axes[1], x_lc, y_lc,
+    f"GA-opt LCOE Radial Staggered\n"
+    f"TH={sol_lcoe[0]:.1f}m, LH={sol_lcoe[1]:.2f}m×{sol_lcoe[1]*sol_lcoe[2]:.2f}m, N={len(x_lc)}"
+)
+
+fig.suptitle("GA-Optimized Radial Staggered Layouts", fontsize=11, fontweight="bold")
+fig.tight_layout()
+fig.savefig("ga_layout.pdf", bbox_inches="tight")
+plt.show()
+print("Saved ga_layout.pdf")
