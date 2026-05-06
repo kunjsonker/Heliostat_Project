@@ -7,6 +7,11 @@ from layout_generator import generate_radial_staggered, check_collisions
 from efficiency_physics import calculate_efficiencies
 from solar_physics import calculate_sun_angles
 
+
+VERNAL_EQUINOX_DNI = 733.32  # W/m² — measured Quetta, your Table II
+REFLECTIVITY       = 0.88    # Table I
+BASELINE_EFF       = 0.82    # baseline optical efficiency for mirror count
+
 # --- 1. Load and Sample the Dataset ---
 print("Loading annual weather data...")
 # Ensure the CSV path is correct for your local environment
@@ -47,7 +52,7 @@ def calculate_annual_metrics(TH, LH, WR, DS):
     
     mirror_area = LH * width
     # Estimated power to scale the field size to a 50MW target
-    power_per_mirror = 858 * 0.88 * mirror_area * 0.82 
+    power_per_mirror = VERNAL_EQUINOX_DNI * REFLECTIVITY * mirror_area * BASELINE_EFF
     target_mirrors = int(50000000 / power_per_mirror) 
     
     if target_mirrors <= len(x):

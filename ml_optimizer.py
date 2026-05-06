@@ -8,6 +8,10 @@ from layout_generator import generate_radial_staggered, check_collisions
 from efficiency_physics import calculate_efficiencies
 from solar_physics import calculate_sun_angles
 
+VERNAL_EQUINOX_DNI = 733.32
+REFLECTIVITY       = 0.88
+BASELINE_EFF       = 0.82
+
 # --- 1. Load Data & Synchronized Physics Engine ---
 print("Loading weather data...")
 df = pd.read_csv('solar-measurementspakistanquettawb-esmapqc.csv', low_memory=False)
@@ -55,7 +59,7 @@ def calculate_annual_metrics(TH, LH, WR, DS):
 
     # Enforce 50 MW capacity limit
     mirror_area      = LH * width
-    power_per_mirror = 858 * 0.88 * mirror_area * 0.82      # W per mirror
+    power_per_mirror = VERNAL_EQUINOX_DNI * REFLECTIVITY * mirror_area * BASELINE_EFF    # W per mirror
     target_mirrors   = int(50_000_000 / power_per_mirror)    # mirrors needed for 50 MW
 
     if target_mirrors <= len(x):
@@ -181,25 +185,35 @@ sol_lcoe, _, _ = ga_lcoe.best_solution()
 
 
 # --- 6. Output Results ---
-final_eff  = rf_efficiency.predict([sol_eff])[0]  * 100
-final_lcoe = rf_lcoe.predict([sol_lcoe])[0]
-
+# --- Physics validation of best solutions ---
+print("\nValidating best solutions against full physics model...")
+true_eff1, true_lcoe1 = calculate_annual_metrics(*sol_eff)
+true_eff2, true_lcoe2 = calculate_annual_metrics(*sol_lcoe)
 
 def get_mirror_count(LH, WR):
     mirror_area      = LH * (LH * WR)
-    power_per_mirror = 858 * 0.88 * mirror_area * 0.82
+    power_per_mirror = VERNAL_EQUINOX_DNI * REFLECTIVITY * mirror_area * BASELINE_EFF
     return int(50_000_000 / power_per_mirror)
-
 
 mirrors_eff  = get_mirror_count(sol_eff[1],  sol_eff[2])
 mirrors_lcoe = get_mirror_count(sol_lcoe[1], sol_lcoe[2])
 
+# RF predictions kept only to show surrogate accuracy
+rf_pred_eff  = rf_efficiency.predict([sol_eff])[0]  * 100
+rf_pred_lcoe = rf_lcoe.predict([sol_lcoe])[0]
+
 print("\n" + "=" * 60)
-print("FINAL ML PREDICTION RESULTS")
+print("FINAL RESULTS — PHYSICS VALIDATED")
 print("=" * 60)
-print(f"Efficiency Opt: TH={sol_eff[0]:.2f}m  | LH={sol_eff[1]:.2f}m  | Mirrors={mirrors_eff}  | Eff={final_eff:.2f}%")
-print(f"LCOE Opt:       TH={sol_lcoe[0]:.2f}m | LH={sol_lcoe[1]:.2f}m | Mirrors={mirrors_lcoe} | LCOE=${final_lcoe:.3f}/kWh")
+print(f"Efficiency Opt: TH={sol_eff[0]:.2f}m  | LH={sol_eff[1]:.2f}m  | Mirrors={mirrors_eff}  | η={true_eff1*100:.2f}% | LCOE=${true_lcoe1:.4f}/kWh")
+print(f"  RF predicted: η={rf_pred_eff:.2f}%  (error={abs(rf_pred_eff - true_eff1*100):.2f} pp)")
+print(f"LCOE Opt:       TH={sol_lcoe[0]:.2f}m | LH={sol_lcoe[1]:.2f}m | Mirrors={mirrors_lcoe} | η={true_eff2*100:.2f}% | LCOE=${true_lcoe2:.4f}/kWh")
+print(f"  RF predicted: LCOE=${rf_pred_lcoe:.4f}/kWh  (error={abs(rf_pred_lcoe - true_lcoe2):.4f})")
 print("=" * 60)
+
+# Use physics-validated values for all figures below
+final_eff  = true_eff1 * 100
+final_lcoe = true_lcoe2
 
 plt.rcParams.update({"font.family": "serif", "figure.dpi": 300})
 
@@ -331,7 +345,7 @@ def get_cost_breakdown(solution):
     x, y = generate_radial_staggered(TH, LH, WR, DS, max_rings=60)
 
     mirror_area      = LH * width
-    power_per_mirror = 858 * 0.88 * mirror_area * 0.82
+    power_per_mirror = VERNAL_EQUINOX_DNI * REFLECTIVITY * mirror_area * BASELINE_EFF
     target_mirrors   = int(50_000_000 / power_per_mirror)
     if target_mirrors < len(x):
         x = x[:target_mirrors]

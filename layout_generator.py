@@ -96,73 +96,59 @@ def _delsol3_spacing(R_c: float, TH: float, LH: float, WH: float):
 # Public API — layout generators
 # ---------------------------------------------------------------------------
 
-def generate_radial_staggered(TH: float, LH: float, WR: float, DS: float,
-                               max_rings: int = MAX_RINGS,
-                               max_heliostats: int = 2000):
+def generate_radial_staggered(tower_height, LH, WR, DS, max_rings=60):
     """
-    Generate a radial-staggered heliostat field.
+    Generates radial staggered heliostat field using DELSOL3 empirical
+    spacing relations (Paper Equations 2 and 3).
 
-    Heliostats are placed in concentric rings.  Ring spacing ΔR and
-    within-ring spacing ΔA follow the DELSOL3 empirical relations
-    (paper Eq. 2-3).  Every other ring is azimuthally offset by half a
-    mirror-pitch to reduce shading (staggering).
-
-    Parameters
-    ----------
-    TH             : float  Tower height (m)              — chromosome gene 0
-    LH             : float  Heliostat length (m)           — chromosome gene 1
-    WR             : float  Width-to-length ratio          — chromosome gene 2
-    DS             : float  Security clearance (m)         — chromosome gene 3
-    max_rings      : int    Hard ring-count ceiling
-    max_heliostats : int    Stop early once this many heliostats are placed.
-                            The optimisers then truncate to the exact 50 MW
-                            count.  Prevents memory blowout on wide fields.
-
-    Returns
-    -------
-    x_coords, y_coords : np.ndarray  Heliostat centre positions (m)
+    Parameters:
+        tower_height : tower height TH (m)
+        LH           : heliostat length Hm (m)
+        WR           : width-to-length ratio, so width Wm = LH * WR
+        DS           : security clearance (m)
+        max_rings    : maximum number of rings to generate
     """
-    WH = LH * WR                         # heliostat width
+    Hm = LH
+    Wm = LH * WR
 
     x_coords = []
     y_coords = []
 
-    # -----------------------------------------------------------------------
-    # BUG 1 FIX: first-ring radius.
-    # Original used TH * 0.5 (no justification).
-    # Haris et al. [3] baseline uses 0.75 × TH as the nearest-ring distance.
-    # -----------------------------------------------------------------------
-    R_c = TH * 0.75
+    # Minimum first-ring radius: tower base clearance (DELSOL3 convention)
+    # Start at 0.75 * TH as a physically motivated minimum clear zone
+    current_radius = max(0.75 * tower_height, Hm + Wm)
 
-    for ring_idx in range(1, max_rings + 1):
+    for ring in range(1, max_rings + 1):
+        # Altitude angle of tower apex as seen from this ring (Eq. 2 definition)
+        r = current_radius / tower_height          # dimensionless radial distance
+        theta_l = np.arctan(1.0 / r)              # altitude angle θ_l (rad)
 
-        # -------------------------------------------------------------------
-        # BUG 2 FIX: DELSOL3 spacing.
-        # Original used flat spacing = WH + DS for both ΔR and ΔA.
-        # Now we call _delsol3_spacing() which implements Eq. 2-3.
-        # -------------------------------------------------------------------
-        delta_R, delta_A = _delsol3_spacing(R_c, TH, LH, WH)
+        # Radial spacing ΔR (Eq. 2)
+        delta_R = Hm * (1.44 / np.tan(theta_l)
+                        - 1.094
+                        + 3.068 * theta_l
+                        - 1.1256 * theta_l**2)
+        delta_R = max(delta_R, Hm + DS)           # never smaller than mirror + clearance
 
-        # Number of mirrors that fit in this ring's circumference
-        num_mirrors = max(1, int(2.0 * np.pi * R_c / delta_A))
+        # Azimuthal spacing ΔA (Eq. 3)
+        delta_A = (Wm * (1.749 + 0.6396 * theta_l)
+                   + 0.2873 / (theta_l - 0.04902 + 1e-9))
+        delta_A = max(delta_A, Wm + DS)           # never smaller than mirror width + clearance
 
-        # Evenly-spaced angles; odd rings are offset by half-pitch (stagger)
-        angles = np.linspace(0.0, 2.0 * np.pi, num_mirrors, endpoint=False)
-        if ring_idx % 2 == 0:
+        # Number of heliostats that fit in this ring
+        circumference = 2 * np.pi * current_radius
+        num_mirrors = max(1, int(circumference / delta_A))
+
+        # Angular positions, staggered on every other ring
+        angles = np.linspace(0, 2 * np.pi, num_mirrors, endpoint=False)
+        if ring % 2 == 0:
             angles += np.pi / num_mirrors
 
-        x_new = R_c * np.cos(angles)
-        y_new = R_c * np.sin(angles)
+        x_coords.extend(current_radius * np.cos(angles))
+        y_coords.extend(current_radius * np.sin(angles))
 
-        # Early-exit cap: slice ring to not exceed max_heliostats
-        remaining = max_heliostats - len(x_coords)
-        if remaining <= 0:
-            break
-        x_coords.extend(x_new[:remaining])
-        y_coords.extend(y_new[:remaining])
-
-        # Advance to next ring
-        R_c += delta_R
+        # Advance to next ring using radial spacing ΔR
+        current_radius += delta_R
 
     return np.array(x_coords), np.array(y_coords)
 
@@ -299,7 +285,8 @@ if __name__ == "__main__":
     DS_test = 0.16
 
     print("Generating radial-staggered field (DELSOL3 spacing)...")
-    x, y = generate_radial_staggered(TH_test, LH_test, WR_test, DS_test)
+    # In __main__ test block, update to new signature:
+    x, y = generate_radial_staggered(tower_height=TH, LH=LH, WR=WR, DS=DS, max_rings=15)
     print(f"  Total heliostats generated : {len(x)}")
 
     safe = check_collisions(x, y, LH_test, WR_test, DS_test)
