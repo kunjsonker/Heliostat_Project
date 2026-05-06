@@ -42,7 +42,8 @@ def calculate_annual_metrics(TH, LH, WR, DS):
     diagonal = np.sqrt(LH**2 + width**2)
     
     # Generate layout
-    x, y = generate_radial_staggered(TH, diagonal, DS)
+    # NEW — matches the new signature (TH, LH, WR, DS)
+    x, y = generate_radial_staggered(TH, LH, WR, DS)
     
     mirror_area = LH * width
     # Estimated power to scale the field size to a 50MW target
@@ -70,7 +71,8 @@ def calculate_annual_metrics(TH, LH, WR, DS):
         if sun_elevation <= 0: 
             continue
             
-        _, _, _, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
+        # NEW — matches the 3-value return (cosine, attenuation, total)
+        _, _, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
         
         mean_eff = np.mean(tot_eff) * 0.97 
         total_annual_efficiency += mean_eff

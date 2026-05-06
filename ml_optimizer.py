@@ -46,7 +46,8 @@ def calculate_annual_metrics(TH, LH, WR, DS):
     width    = LH * WR
     diagonal = np.sqrt(LH ** 2 + width ** 2)
 
-    x, y = generate_radial_staggered(TH, diagonal, DS)
+    # NEW
+    x, y = generate_radial_staggered(TH, LH, WR, DS)
 
     # Static collision check
     if not check_collisions(x, y, LH, WR, DS) or len(x) == 0:
@@ -77,7 +78,8 @@ def calculate_annual_metrics(TH, LH, WR, DS):
         if sun_elevation <= 0:
             continue
 
-        _, _, _, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
+        # NEW
+        _, _, tot_eff = calculate_efficiencies(x, y, TH, sun_elevation, sun_azimuth)
 
         mean_eff = np.mean(tot_eff) * 0.97
         total_annual_efficiency += mean_eff
@@ -275,8 +277,10 @@ def _scatter_field(ax, x, y, title, cmap="RdYlGn", cbar_label="Efficiency (%)"):
 diag_eff  = np.sqrt(sol_eff[1]  ** 2 + (sol_eff[1]  * sol_eff[2])  ** 2)
 diag_lcoe = np.sqrt(sol_lcoe[1] ** 2 + (sol_lcoe[1] * sol_lcoe[2]) ** 2)
 
-x_eff,  y_eff_  = generate_radial_staggered(sol_eff[0],  diag_eff,  sol_eff[3])
-x_lcoe, y_lcoe_ = generate_radial_staggered(sol_lcoe[0], diag_lcoe, sol_lcoe[3])
+# NEW
+x_eff, y_eff_ = generate_radial_staggered(sol_eff[0], sol_eff[1], sol_eff[2], sol_eff[3])
+# NEW
+x_lcoe, y_lcoe_ = generate_radial_staggered(sol_lcoe[0], sol_lcoe[1], sol_lcoe[2], sol_lcoe[3])
 
 x_eff,  y_eff_  = _slice_to_50mw(sol_eff,  x_eff,  y_eff_)
 x_lcoe, y_lcoe_ = _slice_to_50mw(sol_lcoe, x_lcoe, y_lcoe_)
@@ -323,7 +327,8 @@ def get_cost_breakdown(solution):
     TH, LH, WR, DS = solution
     width    = LH * WR
     diagonal = np.sqrt(LH ** 2 + width ** 2)
-    x, y     = generate_radial_staggered(TH, diagonal, DS, max_rings=60)
+    # NEW
+    x, y = generate_radial_staggered(TH, LH, WR, DS, max_rings=60)
 
     mirror_area      = LH * width
     power_per_mirror = 858 * 0.88 * mirror_area * 0.82
